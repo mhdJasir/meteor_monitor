@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Build and packaged artifacts
+*.zip
+*.log

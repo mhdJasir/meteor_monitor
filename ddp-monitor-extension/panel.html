@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DDP Monitor DevTools Panel</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header Toolbar -->
+    <header class="toolbar">
+      <div class="brand">
+        <div class="brand-icon">DDP</div>
+        <span>Traffic Inspector</span>
+      </div>
+
+      <!-- View Navigation Tabs -->
+      <div class="view-tabs">
+        <button id="tab-stream-btn" class="tab-btn active" data-view="stream">
+          ⚡ Traffic Stream
+        </button>
+        <button id="tab-invoker-btn" class="tab-btn" data-view="invoker">
+          🚀 Method Runner
+        </button>
+        <button id="tab-collections-btn" class="tab-btn" data-view="collections">
+          📦 MiniMongo Store (<span id="col-count-badge">0</span>)
+        </button>
+        <button id="tab-subs-btn" class="tab-btn" data-view="subscriptions">
+          📡 Subscriptions (<span id="sub-count-badge">0</span>)
+        </button>
+        <button id="tab-ai-btn" class="tab-btn" data-view="ai-chat">
+          ✨ AI Assistant
+        </button>
+      </div>
+
+      <!-- Action Controls -->
+      <div class="controls-group">
+        <button id="pause-btn" class="btn btn-pause" title="Pause or Resume Recording">
+          <span id="pause-icon">⏸️</span> <span id="pause-label">Pause</span>
+        </button>
+        <button id="clear-btn" class="btn btn-danger" title="Clear captured frames">
+          🧹 Clear
+        </button>
+        <button id="export-btn" class="btn" title="Export frames as JSON">
+          📥 Export Log
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats Ribbon Bar -->
+    <div class="stats-ribbon">
+      <div class="stat-item">
+        <span class="status-badge" id="conn-badge">
+          <span class="status-dot"></span> <span id="conn-text">Active Monitoring</span>
+        </span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Total Messages:</span>
+        <span class="stat-value" id="stat-total">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Out (⬆️):</span>
+        <span class="stat-value" id="stat-out">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">In (⬇️):</span>
+        <span class="stat-value" id="stat-in">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Avg RPC Latency:</span>
+        <span class="stat-value" id="stat-latency">-- ms</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Bandwidth:</span>
+        <span class="stat-value" id="stat-bytes">0 KB</span>
+      </div>
+      <div class="stat-item" style="margin-left: auto;">
+        <span class="stat-label">Socket Endpoint:</span>
+        <span class="stat-value" id="stat-url" style="color: var(--text-muted); font-size: 11px;">Connecting...</span>
+      </div>
+    </div>
+
+    <!-- Search & Filter Bar (Visible in Stream View) -->
+    <div id="stream-filter-bar" class="filter-bar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search method names, collections, payload text...">
+      </div>
+
+      <div class="filter-pills">
+        <button class="pill-btn active" data-filter="all">All Frames</button>
+        <button class="pill-btn" data-filter="method">Methods & Results</button>
+        <button class="pill-btn" data-filter="sub">Subscriptions</button>
+        <button class="pill-btn" data-filter="collection">Collections (Pub/Sub Data)</button>
+        <button class="pill-btn" data-filter="ping">Ping / Pong</button>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+
+      <!-- View 1: Real-time Stream & Inspector Split View -->
+      <div id="view-stream" style="display: flex; width: 100%; height: 100%;">
+        <!-- Table Stream -->
+        <div class="table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Time</th>
+                <th style="width: 60px;">Dir</th>
+                <th style="width: 110px;">Message Type</th>
+                <th>Summary & Payload</th>
+                <th style="width: 90px;">Latency</th>
+                <th style="width: 80px;">Size</th>
+              </tr>
+            </thead>
+            <tbody id="log-tbody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+          <div id="stream-empty" class="empty-state">
+            <div class="empty-icon">📡</div>
+            <p style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Waiting for DDP WebSocket Traffic...</p>
+            <p style="color: var(--accent-blue); max-width: 460px; line-height: 1.5; margin-bottom: 12px;">
+              ⚡ <strong>Quick Tip:</strong> If you opened DevTools or loaded the extension after opening your app, please <strong>refresh the web page (F5 or Cmd+R)</strong> so the monitor script can capture the initial DDP connection and frames.
+            </p>
+            <small style="color: var(--text-muted);">Perform actions in your Meteor application (invoke methods, subscribe, mutate collections) to see live frames here.</small>
+          </div>
+        </div>
+
+        <!-- Right Side Inspector Panel -->
+        <aside id="inspector-panel" class="inspector-panel">
+          <div class="inspector-header">
+            <div class="inspector-title">
+              <span>🔍 Frame Inspector</span>
+              <span id="inspect-msg-badge" class="msg-badge msg-default">--</span>
+            </div>
+            <button id="copy-json-btn" class="btn" style="padding: 4px 8px; font-size: 11px;">📋 Copy JSON</button>
+          </div>
+          <div class="inspector-body">
+            <div id="inspect-content">
+              <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Select a DDP message row on the left to inspect its detailed payload structure.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- View 2: Method Runner / Manual Invoker -->
+      <div id="view-invoker" class="invoker-layout" style="display: none; width: 100%;">
+        <!-- Left Side: Invoker Form -->
+        <div class="invoker-form-panel">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+            <span>🚀 Execute DDP Method</span>
+            <span style="font-size: 11px; color: var(--accent-blue); font-weight: normal;">(Uses Active Browser Session)</span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label">Method Name</label>
+            <input type="text" id="inv-method-name" class="search-input" list="captured-methods-list" placeholder="e.g. canLoadTracking, login, getSystemInfo" style="padding-left: 10px;">
+            <datalist id="captured-methods-list"></datalist>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" style="margin: 0;">Method Parameters (JSON Array)</label>
+              <div style="display: flex; gap: 6px;">
+                <button id="inv-detect-btn" class="btn" style="padding: 2px 8px; font-size: 11px; color: var(--accent-amber);" title="Auto-detect container ID or session keys from page">🔍 Auto-Detect Context</button>
+                <button id="inv-format-btn" class="btn" style="padding: 2px 8px; font-size: 11px;">✨ Format JSON</button>
+              </div>
+            </div>
+            <textarea id="inv-params-json" class="json-textarea" placeholder='["/my/bookings"]'></textarea>
+            <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="pill-btn template-btn" data-tmpl='["/my/bookings"]'>+ ["/my/bookings"]</button>
+              <button class="pill-btn template-btn" data-tmpl='["/my/bookings", "CONTAINER_ID"]'>+ ["/my/bookings", "CONTAINER_ID"]</button>
+              <button class="pill-btn template-btn" data-tmpl='[]'>+ Empty []</button>
+            </div>
+          </div>
+
+          <button id="inv-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px; font-size: 13px;">
+            ⚡ Invoke Method
+          </button>
+        </div>
+
+        <!-- Right Side: Response & Invocation History -->
+        <div class="invoker-result-panel">
+          <div style="padding: 12px 16px; background: rgba(15, 23, 42, 0.6); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <span>Response Payload</span>
+              <span id="inv-response-status" class="status-badge" style="display: none;">--</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="inv-response-latency" style="font-size: 11px; color: var(--accent-amber); font-weight: bold;"></span>
+              <button id="inv-copy-btn" class="btn" style="padding: 4px 8px; font-size: 11px;">📋 Copy Response</button>
+            </div>
+          </div>
+
+          <div style="flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column;">
+            <div id="inv-response-container">
+              <div class="empty-state">
+                <div class="empty-icon">🚀</div>
+                <p>No response yet.</p>
+                <small style="margin-top: 4px; color: var(--text-muted);">Enter method details on the left and click <strong>Invoke Method</strong> to see formatted JSON response here.</small>
+              </div>
+            </div>
+
+            <!-- Invocations History -->
+            <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
+                Recent Invocations History
+              </div>
+              <div id="inv-history-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto;">
+                <!-- Dynamically populated history pills -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View 3: Live Collections Store (MiniMongo Emulator) -->
+      <div id="view-collections" class="collections-layout" style="display: none; width: 100%;">
+        <div class="col-sidebar">
+          <div style="padding: 12px 16px; font-weight: bold; border-bottom: 1px solid var(--border-color); color: var(--text-muted); text-transform: uppercase; font-size: 11px;">
+            Client Collections
+          </div>
+          <div id="col-list-container">
+            <!-- Dynamically populated collection names -->
+          </div>
+        </div>
+        <div class="col-doc-list">
+          <div id="col-doc-header" style="font-size: 16px; font-weight: bold; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span id="col-active-name">Select a collection</span>
+            <span id="col-doc-count" class="pill-btn active">0 documents</span>
+          </div>
+          <div id="col-docs-container">
+            <div class="empty-state">
+              <div class="empty-icon">📦</div>
+              <p>No collection selected or collection is empty.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View 4: Subscriptions Manager -->
+      <div id="view-subscriptions" style="display: none; width: 100%; height: 100%; overflow-y: auto; padding: 16px;">
+        <table class="log-table" style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);">
+          <thead>
+            <tr>
+              <th>Subscription Name</th>
+              <th>Sub ID</th>
+              <th>Status</th>
+              <th>Parameters</th>
+              <th>Started At</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="subs-tbody">
+            <!-- Dynamically populated sub rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- View 5: AI Data Flow Assistant -->
+      <div id="view-ai-chat" class="ai-chat-layout" style="display: none; width: 100%; height: 100%;">
+        <div class="ai-chat-container">
+          <!-- AI Assistant Header Bar -->
+          <div class="ai-header">
+            <div class="ai-header-title">
+              <span class="ai-sparkle-icon">✨</span>
+              <span>AI Data Flow Assistant</span>
+              <span class="status-badge" id="ai-key-status" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-amber);">
+                <span class="status-dot"></span> <span id="ai-key-status-text">API Key Required</span>
+              </span>
+            </div>
+
+            <div class="ai-header-controls">
+              <div class="ai-context-badge" title="Live context automatically sent to AI">
+                ⚡ Context: <span id="ai-context-stats">0 Subs, 0 Cols, 0 Methods</span>
+              </div>
+              <button id="ai-config-btn" class="btn" style="padding: 4px 10px; font-size: 11px;">
+                ⚙️ Key & Model Config
+              </button>
+              <button id="ai-clear-chat-btn" class="btn" style="padding: 4px 10px; font-size: 11px;">
+                🗑️ Clear Chat
+              </button>
+            </div>
+          </div>
+
+          <!-- Key & Model Config Drawer / Card (Toggleable) -->
+          <div id="ai-config-card" class="ai-config-card" style="display: none;">
+            <div class="ai-config-row">
+              <div style="flex: 1;">
+                <label class="form-label" style="margin-bottom: 4px; display: block; font-weight: 600;">Gemini API Key</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="password" id="ai-api-key-input" class="search-input" placeholder="AIzaSy..." style="padding-left: 10px; font-family: var(--font-mono);">
+                  <button id="ai-save-key-btn" class="btn btn-primary" style="white-space: nowrap;">💾 Save Key</button>
+                </div>
+                <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px;">
+                  Get a free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-blue);">Google AI Studio</a>. Saved securely in local extension storage.
+                </small>
+              </div>
+
+              <div style="width: 220px;">
+                <label class="form-label" style="margin-bottom: 4px; display: block; font-weight: 600;">Gemini Model</label>
+                <select id="ai-model-select" class="search-input" style="padding-left: 10px; height: 32px; background: var(--bg-card); cursor: pointer;">
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash Latest</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Suggestion Chips -->
+          <div class="ai-quick-chips">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); align-self: center; margin-right: 4px; white-space: nowrap;">Suggested Queries:</span>
+            <button class="pill-btn ai-chip-btn" data-prompt="Is there any subscription or method which lists countries used in profile page?">
+              🌍 Countries on profile page?
+            </button>
+            <button class="pill-btn ai-chip-btn" data-prompt="What MiniMongo collections hold user data and what is their schema?">
+              📦 User & Profile Collections Schema
+            </button>
+            <button class="pill-btn ai-chip-btn" data-prompt="List all active Meteor subscriptions and their parameters.">
+              📡 Active Subscriptions Overview
+            </button>
+            <button class="pill-btn ai-chip-btn" data-prompt="Are there any RPC methods with errors or high latency?">
+              ⚡ Slow / Failing Methods
+            </button>
+          </div>
+
+          <!-- Messages Container -->
+          <div id="ai-messages-container" class="ai-messages-container">
+            <div class="ai-welcome-card" id="ai-welcome-card">
+              <div class="ai-welcome-icon">🤖</div>
+              <h3 style="margin-bottom: 6px; font-size: 15px; color: var(--text-main);">Welcome to AI Data Flow Assistant</h3>
+              <p style="color: var(--text-muted); font-size: 12px; max-width: 540px; line-height: 1.5; margin-bottom: 14px;">
+                Ask questions about your Meteor website's real-time WebSocket traffic, client subscriptions, RPC method endpoints, and MiniMongo cached collections.
+              </p>
+              <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 10px 14px; font-size: 11px; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; text-align: left;">
+                <span>💡</span>
+                <span><strong>How it works:</strong> The assistant inspects live DDP subscriptions, methods, and MiniMongo docs captured by the monitor and answers questions about data providers, schemas, and endpoint parameters.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <div class="ai-input-bar">
+            <div style="position: relative; flex: 1;">
+              <textarea id="ai-user-input" class="ai-textarea" placeholder="Ask a question about your app's data flow (e.g. 'Which method returns country list for profile?')..."></textarea>
+            </div>
+            <div class="ai-input-actions">
+              <label class="ai-checkbox-label" title="Include current subscriptions, collection schemas, and RPC method names in context">
+                <input type="checkbox" id="ai-include-context" checked>
+                <span>Include Live Data Flow Context</span>
+              </label>
+              <button id="ai-send-btn" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">
+                <span>Send</span> ⚡
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

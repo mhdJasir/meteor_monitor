@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DDP Monitor Popup</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="popup-title">
+        <div class="logo-box">DDP</div>
+        <div>
+          <div class="app-name">Meteor DDP Monitor</div>
+          <div class="app-sub">WebSocket Traffic Inspector</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="status-card">
+      <div class="status-indicator">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text" class="status-label">Monitoring Active Tab</span>
+      </div>
+      <div id="socket-url" class="socket-url">Detecting Meteor Socket...</div>
+    </div>
+
+    <div class="grid-stats">
+      <div class="stat-box">
+        <div class="stat-num" id="pop-total">0</div>
+        <div class="stat-title">Total Frames</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="pop-subs">0</div>
+        <div class="stat-title">Active Subs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="pop-cols">0</div>
+        <div class="stat-title">Collections</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="pop-bytes">0 KB</div>
+        <div class="stat-title">Bandwidth</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="pop-pause-btn" class="btn btn-secondary">
+        <span id="pop-pause-icon">⏸️</span> Pause Capture
+      </button>
+      <button id="pop-clear-btn" class="btn btn-danger">
+        🧹 Clear Log
+      </button>
+    </div>
+
+    <div class="devtools-banner">
+      💡 Press <strong>F12</strong> or <strong>Cmd+Option+I</strong> and select <strong>"DDP Monitor"</strong> tab for full live inspection, JSON viewer, and collections store!
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
